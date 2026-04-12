@@ -13,8 +13,8 @@ import (
 
 // Subscriber 订阅管理器
 type Subscriber struct {
-	client   *quanyu.Client
-	provider *device.Provider
+	client   quanyu.QuanyuClient
+	provider device.DeviceProvider
 	config   config.SubscribeConfig
 	callback config.CallbackConfig
 	logger   *zap.Logger
@@ -22,8 +22,8 @@ type Subscriber struct {
 
 // NewSubscriber 创建订阅管理器
 func NewSubscriber(
-	client *quanyu.Client,
-	provider *device.Provider,
+	client quanyu.QuanyuClient,
+	provider device.DeviceProvider,
 	subCfg config.SubscribeConfig,
 	cbCfg config.CallbackConfig,
 	logger *zap.Logger,

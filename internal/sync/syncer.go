@@ -14,9 +14,9 @@ import (
 
 // Syncer 同步调度器
 type Syncer struct {
-	client   *quanyu.Client
-	storage  *storage.MongoStorage
-	provider *device.Provider
+	client   quanyu.QuanyuClient
+	storage  storage.SyncStorage
+	provider device.DeviceProvider
 	config   config.SyncConfig
 	logger   *zap.Logger
 	cron     *cron.Cron
@@ -24,9 +24,9 @@ type Syncer struct {
 
 // NewSyncer 创建同步调度器
 func NewSyncer(
-	client *quanyu.Client,
-	store *storage.MongoStorage,
-	provider *device.Provider,
+	client quanyu.QuanyuClient,
+	store storage.SyncStorage,
+	provider device.DeviceProvider,
 	cfg config.SyncConfig,
 	logger *zap.Logger,
 ) *Syncer {
