@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go test:*)",
+      "Bash(go tool:*)",
+      "Bash(ls -la .claude/rules/*.md .claude/templates/*.md scripts/*.sh internal/*/MODULE.md internal/quanyu/sign_util.md)"
+    ]
+  }
+}
