@@ -15,12 +15,12 @@ import (
 
 // Handler HTTP 回调处理器
 type Handler struct {
-	storage *storage.MongoStorage
+	storage storage.CallbackStorage
 	logger  *zap.Logger
 }
 
 // NewHandler 创建回调处理器
-func NewHandler(store *storage.MongoStorage, logger *zap.Logger) *Handler {
+func NewHandler(store storage.CallbackStorage, logger *zap.Logger) *Handler {
 	return &Handler{
 		storage: store,
 		logger:  logger,
