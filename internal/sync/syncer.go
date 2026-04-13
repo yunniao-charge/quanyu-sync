@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 
 	"quanyu-battery-sync/internal/config"
 	"quanyu-battery-sync/internal/device"
@@ -88,6 +89,24 @@ func (s *Syncer) Start(ctx context.Context) error {
 func (s *Syncer) Stop() {
 	if s.cron != nil {
 		s.cron.Stop()
+	}
+}
+
+// RunTask 执行单个同步任务（供测试和手动触发使用）
+func (s *Syncer) RunTask(ctx context.Context, syncType, uid string) error {
+	switch syncType {
+	case "detail":
+		return s.syncDetailTask(ctx, uid)
+	case "history_data":
+		return s.syncHistoryDataTask(ctx, uid)
+	case "trace":
+		return s.syncTraceTask(ctx, uid)
+	case "event":
+		return s.syncEventTask(ctx, uid)
+	case "charge_data":
+		return s.syncChargeDataTask(ctx, uid)
+	default:
+		return fmt.Errorf("unknown sync type: %s", syncType)
 	}
 }
 
