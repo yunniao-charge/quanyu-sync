@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"quanyu-battery-sync/internal/config"
@@ -89,30 +90,45 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 
 		batch := uids[i:end]
 
-		// subscribeV2 每次对一个 uid 调用，list 中包含该 uid
-		for _, uid := range batch {
-			resp, err := sub.client.SubscribeV2(ctx, uid, []string{uid}, sub.config.SubData, notifyURL)
-			if err != nil {
-				failCount++
-				sub.logger.Error("订阅设备失败",
-					zap.String("uid", uid),
-					zap.Error(err),
-				)
-				continue
+		// 尝试批量订阅：用第一个 uid 签名，list 传整个 batch
+		resp, err := sub.client.SubscribeV2(ctx, batch[0], batch, sub.config.SubData, notifyURL)
+		if err != nil || (resp != nil && resp.Errno != 0) {
+			batchErr := err
+			if resp != nil && resp.Errno != 0 {
+				batchErr = fmt.Errorf("errno=%d: %s", resp.Errno, resp.Errmsg)
 			}
+			sub.logger.Debug("批量订阅失败，降级为逐个订阅",
+				zap.Int("batch_size", len(batch)),
+				zap.Error(batchErr),
+			)
+			// 降级为逐个订阅
+			for _, uid := range batch {
+				resp, err := sub.client.SubscribeV2(ctx, uid, []string{uid}, sub.config.SubData, notifyURL)
+				if err != nil {
+					failCount++
+					sub.logger.Debug("订阅设备失败",
+						zap.String("uid", uid),
+						zap.Error(err),
+					)
+					continue
+				}
 
-			if resp.Errno != 0 {
-				failCount++
-				sub.logger.Error("订阅设备返回错误",
-					zap.String("uid", uid),
-					zap.Int("errno", resp.Errno),
-					zap.String("errmsg", resp.Errmsg),
-				)
-				continue
+				if resp.Errno != 0 {
+					failCount++
+					sub.logger.Debug("订阅设备返回错误",
+						zap.String("uid", uid),
+						zap.Int("errno", resp.Errno),
+						zap.String("errmsg", resp.Errmsg),
+					)
+					continue
+				}
+
+				successCount++
 			}
-
-			successCount++
+			continue
 		}
+
+		successCount += len(batch)
 	}
 
 	sub.logger.Info("订阅完成",

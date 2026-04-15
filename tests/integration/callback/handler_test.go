@@ -48,10 +48,9 @@ func TestMain(m *testing.M) {
 	testHelper.Close(ctx2)
 }
 
-// TestInfoCallback 验证 info 推送正确存入 callback_info 且 battery_details 快照更新
+// TestInfoCallback 验证 info 推送正确更新 battery_details 快照
 func TestInfoCallback(t *testing.T) {
 	uid := fmt.Sprintf("test_uid_%d", time.Now().UnixNano())
-	defer cleanupByUID(t, "callback_info", uid)
 	defer cleanupByUID(t, "battery_details", uid)
 
 	payload := callback.InfoPushPayload{
@@ -81,17 +80,8 @@ func TestInfoCallback(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// 验证 callback_info 数据
-	ctx := context.Background()
-	col := testHelper.Storage.Collection("callback_info")
-	var infoDoc storage.CallbackInfoDoc
-	err := col.FindOne(ctx, bson.D{{Key: "uid", Value: uid}}).Decode(&infoDoc)
-	require.NoError(t, err, "callback_info 应有数据")
-	assert.Equal(t, uid, infoDoc.UID)
-	assert.Equal(t, 1, infoDoc.DevType)
-	assert.Equal(t, 85, infoDoc.Remain)
-
 	// 验证 battery_details 快照更新
+	ctx := context.Background()
 	detailDoc, err := testHelper.Storage.GetBatteryDetail(ctx, uid)
 	require.NoError(t, err)
 	require.NotNil(t, detailDoc, "battery_details 应有快照")

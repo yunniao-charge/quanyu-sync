@@ -1,0 +1,17 @@
+[Unit]
+Description=全裕电池数据同步服务
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/quanyu-sync
+ExecStart=/opt/quanyu-sync/quanyu-battery-sync
+Restart=always
+RestartSec=10
+
+# 日志输出到 journalctl
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

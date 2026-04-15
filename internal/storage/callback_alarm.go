@@ -12,9 +12,8 @@ import (
 type CallbackAlarmDoc struct {
 	UID        string    `bson:"uid"`
 	Alarm      string    `bson:"alarm"`
-	Type       int       `bson:"type,omitempty"`
+	AlarmData  string    `bson:"alarm_data"`
 	Time       string    `bson:"time"`
-	InfoObj    any       `bson:"info_obj,omitempty"`
 	ReceivedAt time.Time `bson:"received_at"`
 	AppID      string    `bson:"appid,omitempty"`
 }

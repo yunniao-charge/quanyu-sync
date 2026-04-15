@@ -32,7 +32,6 @@ type SyncStorage interface {
 
 // CallbackStorage 回调数据存储接口（供 Callback Handler 使用）
 type CallbackStorage interface {
-	UpsertCallbackInfo(ctx context.Context, doc *CallbackInfoDoc) error
 	InsertCallbackAlarm(ctx context.Context, doc *CallbackAlarmDoc) error
 	InsertCallbackOnline(ctx context.Context, doc *CallbackOnlineDoc) error
 	UpdateBatteryDetailFromCallback(ctx context.Context, uid string, fields bson.D) error

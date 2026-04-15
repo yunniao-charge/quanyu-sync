@@ -97,13 +97,6 @@ func (s *MongoStorage) EnsureIndexes(ctx context.Context) error {
 			},
 		},
 		{
-			collection: "callback_info",
-			models: []mongo.IndexModel{
-				{Keys: bson.D{{Key: "uid", Value: 1}}, Options: options.Index().SetUnique(true)},
-				{Keys: bson.D{{Key: "received_at", Value: -1}}},
-			},
-		},
-		{
 			collection: "callback_alarms",
 			models: []mongo.IndexModel{
 				{Keys: bson.D{{Key: "uid", Value: 1}, {Key: "alarm", Value: 1}, {Key: "time", Value: 1}}, Options: options.Index().SetUnique(true)},

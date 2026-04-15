@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"quanyu-battery-sync/internal/storage"
-
-	"go.uber.org/zap"
 )
 
 func (s *Syncer) syncDetailTask(ctx context.Context, uid string) error {
@@ -53,12 +51,6 @@ func (s *Syncer) syncDetailTask(ctx context.Context, uid string) error {
 		_ = s.storage.UpdateSyncError(ctx, uid, "detail", err.Error())
 		return err
 	}
-
-	s.logger.Debug("电池详情同步成功",
-		zap.String("uid", uid),
-		zap.Int("soc", detail.SOC),
-		zap.String("voltage", detail.Voltage),
-	)
 
 	return nil
 }

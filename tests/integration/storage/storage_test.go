@@ -216,39 +216,6 @@ func TestUpsertChargeRecords(t *testing.T) {
 	cleanupByUID(t, "charge_records", uid)
 }
 
-// ==================== callback_info ====================
-
-func TestUpsertCallbackInfo(t *testing.T) {
-	ctx := context.Background()
-	uid := fmt.Sprintf("test_uid_%d", time.Now().UnixNano())
-
-	doc := &storage.CallbackInfoDoc{
-		UID:        uid,
-		DevType:    1,
-		Remain:     85,
-		Online:     1,
-		Voltage:    520,
-		ReceivedAt: time.Now(),
-		AppID:      "test_app",
-	}
-
-	require.NoError(t, testHelper.Storage.UpsertCallbackInfo(ctx, doc))
-
-	// 再次 upsert 应更新
-	doc2 := &storage.CallbackInfoDoc{
-		UID:        uid,
-		DevType:    2,
-		Remain:     90,
-		Online:     1,
-		Voltage:    530,
-		ReceivedAt: time.Now(),
-		AppID:      "test_app",
-	}
-	require.NoError(t, testHelper.Storage.UpsertCallbackInfo(ctx, doc2))
-
-	cleanupDoc(t, "callback_info", uid)
-}
-
 // ==================== callback_alarms ====================
 
 func TestInsertCallbackAlarm(t *testing.T) {

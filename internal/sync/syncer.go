@@ -129,7 +129,7 @@ func (s *Syncer) runSyncRound(ctx context.Context, syncType string, fn func(cont
 	for _, uid := range uids {
 		if err := fn(ctx, uid); err != nil {
 			failCount++
-			s.logger.Error("同步失败",
+			s.logger.Debug("同步失败",
 				zap.String("type", syncType),
 				zap.String("uid", uid),
 				zap.Error(err),

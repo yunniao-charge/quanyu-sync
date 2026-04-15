@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"quanyu-battery-sync/internal/config"
+	"quanyu-battery-sync/internal/logger"
 
 	"go.uber.org/zap"
 )
@@ -124,9 +125,10 @@ func (c *Client) makeRequest(ctx context.Context, apiName, endpoint, uid string,
 
 		// 记录 API 调试日志
 		prettyResp, _ := json.MarshalIndent(result, "", "  ")
-		logger := c.logger
-		if logger != nil {
-			logger.Debug("API response",
+		logger.LogAPI(endpoint, uid, attempt, string(jsonData), string(prettyResp))
+		appLogger := c.logger
+		if appLogger != nil {
+			appLogger.Debug("API response",
 				zap.String("endpoint", endpoint),
 				zap.String("uid", uid),
 				zap.Int("attempt", attempt),
@@ -164,7 +166,6 @@ func (c *Client) makeRequest(ctx context.Context, apiName, endpoint, uid string,
 			zap.Duration("elapsed", elapsed),
 		)
 
-		_ = prettyResp // 可用于 LogAPI
 		return &result, nil
 	}
 
@@ -231,6 +232,10 @@ func (c *Client) GetBatteryTrace(ctx context.Context, uid, startTime, endTime st
 		return nil, err
 	}
 	if resp.Errno != 0 {
+		// trace API 500 表示该时段无轨迹数据，返回空结果而非错误
+		if resp.Errno == 500 {
+			return &BatteryTraceResponse{}, nil
+		}
 		return nil, fmt.Errorf("API错误 [errno=%d]: %s", resp.Errno, resp.Errmsg)
 	}
 
@@ -290,9 +295,9 @@ func (c *Client) GetChargeRecords(ctx context.Context, uid, beginStart, beginEnd
 // SubscribeV2 订阅设备数据推送
 func (c *Client) SubscribeV2(ctx context.Context, uid string, list []string, subData []string, notifyURL string) (*QuanyuResponse, error) {
 	params := map[string]any{
-		"list":       list,
-		"sub_data":   subData,
-		"notify_url": notifyURL,
+		"list":      list,
+		"subData":   subData,
+		"notifyurl": notifyURL,
 	}
 	resp, err := c.makeRequest(ctx, "subscribe", "/sw/api/open/subscribeV2", uid, params)
 	if err != nil {

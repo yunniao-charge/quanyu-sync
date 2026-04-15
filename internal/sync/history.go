@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"quanyu-battery-sync/internal/storage"
@@ -57,7 +56,6 @@ func (s *Syncer) syncHistoryDataTask(ctx context.Context, uid string) error {
 	}
 
 	_ = count
-	fmt.Printf("history sync: uid=%s, upserted=%d\n", uid, count)
 
 	return s.storage.UpdateSyncTime(ctx, uid, "history_data", endTime)
 }

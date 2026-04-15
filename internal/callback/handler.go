@@ -13,6 +13,19 @@ import (
 	"go.uber.org/zap"
 )
 
+// formatBatTime 将回调的紧凑时间格式 "20060415095539" 统一为 "2006-01-02 15:04:05"
+// 如果已经是标准格式或为空，原样返回
+func formatBatTime(s string) string {
+	if s == "" || len(s) != 14 {
+		return s
+	}
+	t, err := time.Parse("20060102150405", s)
+	if err != nil {
+		return s
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
 // Handler HTTP 回调处理器
 type Handler struct {
 	storage storage.CallbackStorage
@@ -36,178 +49,153 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.logger.Error("读取回调 body 失败", zap.Error(err))
+		h.logger.Error("[callback] 读取 body 失败", zap.Error(err))
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
-	h.logger.Debug("收到回调", zap.String("body", string(body)))
-
-	// 尝试判断数据类型并分发处理
 	ctx := r.Context()
 
-	// 尝试解析为各种类型
-	var raw map[string]json.RawMessage
+	// 解析顶层结构，用 type 字段分发
+	var raw struct {
+		Type string          `json:"type"`
+		Data json.RawMessage `json:"data"`
+	}
 	if err := json.Unmarshal(body, &raw); err != nil {
-		h.logger.Error("解析回调 JSON 失败", zap.Error(err))
+		h.logger.Error("[callback] 解析 JSON 失败", zap.Error(err))
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	// 检查 data 字段来判断类型
-	dataRaw, ok := raw["data"]
-	if !ok {
-		h.logger.Warn("回调数据缺少 data 字段")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// 尝试解析 data 数组中的第一个元素来判断类型
-	var dataItems []map[string]json.RawMessage
-	if err := json.Unmarshal(dataRaw, &dataItems); err != nil || len(dataItems) == 0 {
-		h.logger.Warn("回调 data 为空或解析失败")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	firstItem := dataItems[0]
-
-	// 判断类型：有 event 字段 -> alarm; 有 remain 或 voltage -> info; 有 online 字段 -> online
-	if _, hasEvent := firstItem["event"]; hasEvent {
-		h.handleAlarm(ctx, body)
-	} else if _, hasRemain := firstItem["remain"]; hasRemain {
-		h.handleInfo(ctx, body)
-	} else if _, hasOnline := firstItem["online"]; hasOnline {
-		h.handleOnline(ctx, body)
-	} else {
-		h.logger.Warn("无法识别的回调数据类型")
+	switch raw.Type {
+	case "info":
+		h.handleInfo(ctx, raw.Data)
+	case "alarm":
+		h.handleAlarm(ctx, raw.Data)
+	case "online":
+		h.handleOnline(ctx, raw.Data)
+	default:
+		h.logger.Warn("[callback] 未知类型",
+			zap.String("type", raw.Type),
+			zap.String("body", string(body)),
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
-// handleInfo 处理 info 推送
-func (h *Handler) handleInfo(ctx context.Context, body []byte) {
-	var payload InfoPushPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		h.logger.Error("解析 info 推送数据失败", zap.Error(err))
+// handleInfo 处理 info 推送（已验证格式，正常解析存储）
+func (h *Handler) handleInfo(ctx context.Context, dataRaw json.RawMessage) {
+	var item InfoPushItem
+	if err := json.Unmarshal(dataRaw, &item); err != nil {
+		h.logger.Error("[callback:info] 解析失败", zap.Error(err))
 		return
 	}
 
-	h.logger.Info("收到 info 回调",
-		zap.String("appid", payload.AppID),
-		zap.Int("data_count", len(payload.Data)),
+	h.logger.Debug("[callback:info] 收到",
+		zap.String("uid", item.UID),
+		zap.Int("remain", item.Remain),
+		zap.Int("online", item.Online),
+		zap.String("voltage", item.Voltage),
+		zap.String("loc", item.Loc),
 	)
 
-	for _, item := range payload.Data {
-		now := time.Now()
+	// 统一 bat_time 格式为 "2006-01-02 15:04:05"
+	batTime := formatBatTime(item.BatTime)
 
-		// 存入 callback_info 集合
-		infoDoc := &storage.CallbackInfoDoc{
-			UID:        item.UID,
-			DevType:    item.DevType,
-			SN:         item.SN,
-			Loc:        item.Loc,
-			Remain:     item.Remain,
-			Online:     item.Online,
-			Voltage:    item.Voltage,
-			Charge:     item.Charge,
-			Discharge:  item.Discharge,
-			BatTime:    item.BatTime,
-			ReceivedAt: now,
-			AppID:      payload.AppID,
-		}
-
-		if err := h.storage.UpsertCallbackInfo(ctx, infoDoc); err != nil {
-			h.logger.Error("存储 info 回调数据失败",
-				zap.String("uid", item.UID),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		// 同时更新 battery_details 快照
-		fields := bson.D{
-			{Key: "soc", Value: item.Remain},
-			{Key: "online_status", Value: item.Online},
-			{Key: "charge", Value: item.Charge},
-			{Key: "discharge", Value: item.Discharge},
-			{Key: "loc", Value: item.Loc},
-			{Key: "bat_time", Value: item.BatTime},
-		}
-		if err := h.storage.UpdateBatteryDetailFromCallback(ctx, item.UID, fields); err != nil {
-			h.logger.Error("从回调更新电池详情失败",
-				zap.String("uid", item.UID),
-				zap.Error(err),
-			)
-		}
+	fields := bson.D{
+		{Key: "online_status", Value: item.Online},
+		{Key: "charge", Value: item.Charge},
+		{Key: "discharge", Value: item.Discharge},
+		{Key: "loc", Value: item.Loc},
+		{Key: "bat_time", Value: batTime},
+	}
+	if err := h.storage.UpdateBatteryDetailFromCallback(ctx, item.UID, fields); err != nil {
+		h.logger.Error("[callback:info] 更新 battery_details 失败",
+			zap.String("uid", item.UID),
+			zap.Error(err),
+		)
 	}
 }
 
-// handleAlarm 处理 alarm 推送
-func (h *Handler) handleAlarm(ctx context.Context, body []byte) {
-	var payload AlarmPushPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		h.logger.Error("解析 alarm 推送数据失败", zap.Error(err))
+// handleAlarm 处理 alarm 推送（已验证，2026-04-15）
+func (h *Handler) handleAlarm(ctx context.Context, dataRaw json.RawMessage) {
+	var item AlarmPushItem
+	if err := json.Unmarshal(dataRaw, &item); err != nil {
+		h.logger.Error("[callback:alarm] 解析失败", zap.Error(err))
 		return
 	}
 
-	h.logger.Info("收到 alarm 回调",
-		zap.String("appid", payload.AppID),
-		zap.Int("data_count", len(payload.Data)),
+	h.logger.Debug("[callback:alarm] 收到",
+		zap.String("uid", item.UID),
+		zap.String("alarmCode", item.AlarmCode),
+		zap.String("time", item.Time),
 	)
 
-	for _, item := range payload.Data {
-		for _, event := range item.Events {
-			alarmDoc := &storage.CallbackAlarmDoc{
-				UID:        item.UID,
-				Alarm:      event.Alarm,
-				Type:       event.Type,
-				Time:       event.Time,
-				InfoObj:    item.InfoObj,
-				ReceivedAt: time.Now(),
-				AppID:      payload.AppID,
-			}
+	now := time.Now()
 
-			if err := h.storage.InsertCallbackAlarm(ctx, alarmDoc); err != nil {
-				h.logger.Error("存储 alarm 回调数据失败",
-					zap.String("uid", item.UID),
-					zap.String("alarm", event.Alarm),
-					zap.Error(err),
-				)
-			}
-		}
+	doc := &storage.CallbackAlarmDoc{
+		UID:        item.UID,
+		Alarm:      item.AlarmCode,
+		AlarmData:  item.AlarmData,
+		Time:       item.Time,
+		ReceivedAt: now,
+		AppID:      "callback",
+	}
+
+	if err := h.storage.InsertCallbackAlarm(ctx, doc); err != nil {
+		h.logger.Error("[callback:alarm] 存储失败",
+			zap.String("uid", item.UID),
+			zap.Error(err),
+		)
 	}
 }
 
-// handleOnline 处理 online 推送
-func (h *Handler) handleOnline(ctx context.Context, body []byte) {
-	var payload OnlinePushPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		h.logger.Error("解析 online 推送数据失败", zap.Error(err))
+// handleOnline 处理 online 推送（已验证，2026-04-15）
+func (h *Handler) handleOnline(ctx context.Context, dataRaw json.RawMessage) {
+	var item OnlinePushItem
+	if err := json.Unmarshal(dataRaw, &item); err != nil {
+		h.logger.Error("[callback:online] 解析失败", zap.Error(err))
 		return
 	}
 
-	h.logger.Info("收到 online 回调",
-		zap.String("appid", payload.AppID),
-		zap.Int("data_count", len(payload.Data)),
+	// 毫秒时间戳转格式化字符串
+	t := time.UnixMilli(item.Time)
+	timeStr := t.Format("20060102150405")
+
+	h.logger.Debug("[callback:online] 收到",
+		zap.String("uid", item.UID),
+		zap.Int("online", item.Online),
+		zap.String("time", timeStr),
 	)
 
-	for _, item := range payload.Data {
-		onlineDoc := &storage.CallbackOnlineDoc{
-			UID:        item.UID,
-			Online:     item.Online,
-			Time:       item.Time,
-			ReceivedAt: time.Now(),
-			AppID:      payload.AppID,
-		}
+	now := time.Now()
 
-		if err := h.storage.InsertCallbackOnline(ctx, onlineDoc); err != nil {
-			h.logger.Error("存储 online 回调数据失败",
-				zap.String("uid", item.UID),
-				zap.Error(err),
-			)
-		}
+	doc := &storage.CallbackOnlineDoc{
+		UID:        item.UID,
+		Online:     item.Online,
+		Time:       timeStr,
+		ReceivedAt: now,
+		AppID:      "callback",
+	}
+
+	if err := h.storage.InsertCallbackOnline(ctx, doc); err != nil {
+		h.logger.Error("[callback:online] 存储失败",
+			zap.String("uid", item.UID),
+			zap.Error(err),
+		)
+		return
+	}
+
+	// 更新 battery_details 在线状态
+	fields := bson.D{
+		{Key: "online_status", Value: item.Online},
+	}
+	if err := h.storage.UpdateBatteryDetailFromCallback(ctx, item.UID, fields); err != nil {
+		h.logger.Error("[callback:online] 更新 battery_details 失败",
+			zap.String("uid", item.UID),
+			zap.Error(err),
+		)
 	}
 }
