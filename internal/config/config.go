@@ -103,7 +103,7 @@ func Load(path string) (*Config, error) {
 		cfg.MongoDB.Database = "quanyu_battery"
 	}
 	if cfg.Callback.ListenAddr == "" {
-		cfg.Callback.ListenAddr = ":8080"
+		cfg.Callback.ListenAddr = ":8888"
 	}
 	if cfg.Subscribe.BatchSize == 0 {
 		cfg.Subscribe.BatchSize = 20

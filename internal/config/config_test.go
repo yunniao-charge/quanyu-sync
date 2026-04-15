@@ -33,7 +33,7 @@ mongodb:
   password: "root123"
 
 callback:
-  listen_addr: ":8080"
+  listen_addr: ":8888"
   notifyurl_base: "http://example.com"
 
 subscribe:
@@ -79,7 +79,7 @@ sync:
 	assert.Equal(t, "root", cfg.MongoDB.Username)
 	assert.Equal(t, "root123", cfg.MongoDB.Password)
 
-	assert.Equal(t, ":8080", cfg.Callback.ListenAddr)
+	assert.Equal(t, ":8888", cfg.Callback.ListenAddr)
 	assert.Equal(t, "http://example.com", cfg.Callback.NotifyURLBase)
 
 	assert.Equal(t, 20, cfg.Subscribe.BatchSize)
@@ -123,7 +123,7 @@ quanyu:
 	assert.Equal(t, "mongodb://localhost:27017", cfg.MongoDB.URI)
 	assert.Equal(t, "quanyu_battery", cfg.MongoDB.Database)
 
-	assert.Equal(t, ":8080", cfg.Callback.ListenAddr)
+	assert.Equal(t, ":8888", cfg.Callback.ListenAddr)
 
 	assert.Equal(t, 20, cfg.Subscribe.BatchSize)
 	assert.Equal(t, 25*time.Minute, cfg.Subscribe.RenewInterval)

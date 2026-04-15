@@ -20,7 +20,7 @@ mongodb:
 
 # 回调服务配置
 callback:
-  listen_addr: ":8080"
+  listen_addr: ":8888"
   notifyurl_base: "http://YOUR_PUBLIC_URL"
 
 # 订阅配置
