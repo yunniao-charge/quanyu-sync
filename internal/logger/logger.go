@@ -10,14 +10,17 @@ import (
 )
 
 var (
-	AppLogger   *zap.Logger
-	Sugar       *zap.SugaredLogger
-	APIDebugLog bool
-	debugLogger *zap.Logger
+	AppLogger        *zap.Logger
+	Sugar            *zap.SugaredLogger
+	APIDebugLog      bool
+	CallbackDebugLog bool
+	debugLogger      *zap.Logger
+	callbackDebugLog *zap.Logger
 )
 
-func Init(dir, level string, maxSize, maxBackups, maxAge int, apiDebugLog bool) error {
+func Init(dir, level string, maxSize, maxBackups, maxAge int, apiDebugLog, callbackDebugLogCfg bool) error {
 	APIDebugLog = apiDebugLog
+	CallbackDebugLog = callbackDebugLogCfg
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -68,20 +71,36 @@ func Init(dir, level string, maxSize, maxBackups, maxAge int, apiDebugLog bool) 
 	syncCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(syncWriter), zapLevel)
 	_ = syncCore // syncLogger 在 Syncer 内部使用
 
-	// API 调试日志
-	if apiDebugLog {
+	// debug 目录（API 调试或回调调试共用）
+	if apiDebugLog || callbackDebugLogCfg {
 		debugDir := filepath.Join(dir, "debug")
 		if err := os.MkdirAll(debugDir, 0755); err != nil {
 			return err
 		}
-		debugWriter := &lumberjack.Logger{
-			Filename:   filepath.Join(debugDir, "api.log"),
-			MaxSize:    maxSize,
-			MaxBackups: maxBackups,
-			MaxAge:     maxAge,
+
+		// API 调试日志
+		if apiDebugLog {
+			debugWriter := &lumberjack.Logger{
+				Filename:   filepath.Join(debugDir, "api.log"),
+				MaxSize:    maxSize,
+				MaxBackups: maxBackups,
+				MaxAge:     maxAge,
+			}
+			debugCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(debugWriter), zapcore.DebugLevel)
+			debugLogger = zap.New(debugCore)
 		}
-		debugCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(debugWriter), zapcore.DebugLevel)
-		debugLogger = zap.New(debugCore)
+
+		// 回调调试日志 - 记录订阅请求和回调接收的详细内容
+		if callbackDebugLogCfg {
+			cbWriter := &lumberjack.Logger{
+				Filename:   filepath.Join(debugDir, "callback.log"),
+				MaxSize:    maxSize,
+				MaxBackups: maxBackups,
+				MaxAge:     maxAge,
+			}
+			cbCore := zapcore.NewCore(fileEncoder, zapcore.AddSync(cbWriter), zapcore.DebugLevel)
+			callbackDebugLog = zap.New(cbCore)
+		}
 	}
 
 	return nil
@@ -97,6 +116,13 @@ func LogAPI(endpoint, uid string, attempt int, request, response string) {
 			zap.String("request", request),
 			zap.String("response", response),
 		)
+	}
+}
+
+// LogCallbackDebug 记录回调调试日志
+func LogCallbackDebug(msg string, fields ...zap.Field) {
+	if callbackDebugLog != nil {
+		callbackDebugLog.Info(msg, fields...)
 	}
 }
 
@@ -124,5 +150,8 @@ func Sync() {
 	}
 	if debugLogger != nil {
 		_ = debugLogger.Sync()
+	}
+	if callbackDebugLog != nil {
+		_ = callbackDebugLog.Sync()
 	}
 }

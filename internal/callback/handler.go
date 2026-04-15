@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"quanyu-battery-sync/internal/logger"
 	"quanyu-battery-sync/internal/storage"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -43,6 +44,11 @@ func NewHandler(store storage.CallbackStorage, logger *zap.Logger) *Handler {
 // ServeHTTP 统一回调入口
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
+		h.logger.Warn("[callback] 收到非 POST 请求",
+			zap.String("method", r.Method),
+			zap.String("remote_addr", r.RemoteAddr),
+			zap.String("path", r.URL.Path),
+		)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -55,6 +61,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// 回调调试日志：记录完整请求
+	logger.LogCallbackDebug("[callback] 收到 HTTP 请求",
+		zap.String("remote_addr", r.RemoteAddr),
+		zap.String("method", r.Method),
+		zap.String("path", r.URL.Path),
+		zap.String("content_type", r.Header.Get("Content-Type")),
+		zap.Int("body_length", len(body)),
+		zap.String("body", string(body)),
+	)
+
 	ctx := r.Context()
 
 	// 解析顶层结构，用 type 字段分发
@@ -63,7 +79,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Data json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
-		h.logger.Error("[callback] 解析 JSON 失败", zap.Error(err))
+		h.logger.Error("[callback] 解析 JSON 失败",
+			zap.Error(err),
+			zap.String("body", string(body)),
+		)
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}

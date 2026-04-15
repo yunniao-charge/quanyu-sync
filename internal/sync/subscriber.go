@@ -7,6 +7,7 @@ import (
 
 	"quanyu-battery-sync/internal/config"
 	"quanyu-battery-sync/internal/device"
+	"quanyu-battery-sync/internal/logger"
 	"quanyu-battery-sync/internal/quanyu"
 
 	"go.uber.org/zap"
@@ -43,6 +44,7 @@ func (sub *Subscriber) StartRenewLoop(ctx context.Context) {
 	sub.logger.Info("订阅续订循环启动",
 		zap.Duration("interval", sub.config.RenewInterval),
 		zap.Int("batch_size", sub.config.BatchSize),
+		zap.String("notify_url", sub.callback.NotifyURL),
 	)
 
 	// 首次立即订阅
@@ -79,6 +81,13 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 	notifyURL := sub.callback.NotifyURL
 	batchSize := sub.config.BatchSize
 
+	logger.LogCallbackDebug("[subscribe] 开始订阅",
+		zap.Int("total_devices", len(uids)),
+		zap.Int("batch_size", batchSize),
+		zap.String("notify_url", notifyURL),
+		zap.Strings("sub_data", sub.config.SubData),
+	)
+
 	successCount := 0
 	failCount := 0
 
@@ -90,6 +99,14 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 
 		batch := uids[i:end]
 
+		logger.LogCallbackDebug("[subscribe] 批次",
+			zap.Int("batch_index", i/batchSize+1),
+			zap.Int("batch_size", len(batch)),
+			zap.String("first_uid", batch[0]),
+			zap.String("last_uid", batch[len(batch)-1]),
+			zap.String("notify_url", notifyURL),
+		)
+
 		// 尝试批量订阅：用第一个 uid 签名，list 传整个 batch
 		resp, err := sub.client.SubscribeV2(ctx, batch[0], batch, sub.config.SubData, notifyURL)
 		if err != nil || (resp != nil && resp.Errno != 0) {
@@ -97,7 +114,7 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 			if resp != nil && resp.Errno != 0 {
 				batchErr = fmt.Errorf("errno=%d: %s", resp.Errno, resp.Errmsg)
 			}
-			sub.logger.Debug("批量订阅失败，降级为逐个订阅",
+			sub.logger.Warn("批量订阅失败，降级为逐个订阅",
 				zap.Int("batch_size", len(batch)),
 				zap.Error(batchErr),
 			)
@@ -106,7 +123,7 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 				resp, err := sub.client.SubscribeV2(ctx, uid, []string{uid}, sub.config.SubData, notifyURL)
 				if err != nil {
 					failCount++
-					sub.logger.Debug("订阅设备失败",
+					sub.logger.Warn("订阅设备失败",
 						zap.String("uid", uid),
 						zap.Error(err),
 					)
@@ -115,7 +132,7 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 
 				if resp.Errno != 0 {
 					failCount++
-					sub.logger.Debug("订阅设备返回错误",
+					sub.logger.Warn("订阅设备返回错误",
 						zap.String("uid", uid),
 						zap.Int("errno", resp.Errno),
 						zap.String("errmsg", resp.Errmsg),
@@ -135,6 +152,13 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 		zap.Int("total", len(uids)),
 		zap.Int("success", successCount),
 		zap.Int("failed", failCount),
+	)
+
+	logger.LogCallbackDebug("[subscribe] 订阅完成",
+		zap.Int("total", len(uids)),
+		zap.Int("success", successCount),
+		zap.Int("failed", failCount),
+		zap.String("notify_url", notifyURL),
 	)
 
 	return nil

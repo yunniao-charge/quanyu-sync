@@ -49,12 +49,13 @@ type SubscribeConfig struct {
 }
 
 type LogConfig struct {
-	Dir         string `yaml:"dir"`
-	Level       string `yaml:"level"`
-	MaxSize     int    `yaml:"max_size"`
-	MaxBackups  int    `yaml:"max_backups"`
-	MaxAge      int    `yaml:"max_age"`
-	APIDebugLog bool   `yaml:"api_debug_log"`
+	Dir              string `yaml:"dir"`
+	Level            string `yaml:"level"`
+	MaxSize          int    `yaml:"max_size"`
+	MaxBackups       int    `yaml:"max_backups"`
+	MaxAge           int    `yaml:"max_age"`
+	APIDebugLog      bool   `yaml:"api_debug_log"`
+	CallbackDebugLog bool   `yaml:"callback_debug_log"`
 }
 
 type SyncTaskConfig struct {

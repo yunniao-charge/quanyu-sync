@@ -31,7 +31,7 @@ func main() {
 	}
 
 	// 2. 初始化日志
-	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxSize, cfg.Log.MaxBackups, cfg.Log.MaxAge, cfg.Log.APIDebugLog); err != nil {
+	if err := logger.Init(cfg.Log.Dir, cfg.Log.Level, cfg.Log.MaxSize, cfg.Log.MaxBackups, cfg.Log.MaxAge, cfg.Log.APIDebugLog, cfg.Log.CallbackDebugLog); err != nil {
 		fmt.Printf("初始化日志失败: %v\n", err)
 		os.Exit(1)
 	}

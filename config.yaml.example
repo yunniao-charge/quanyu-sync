@@ -40,6 +40,7 @@ log:
   max_backups: 30
   max_age: 30
   api_debug_log: false
+  callback_debug_log: false
 
 # 同步任务配置
 sync:

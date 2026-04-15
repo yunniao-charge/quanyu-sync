@@ -294,6 +294,13 @@ func (c *Client) GetChargeRecords(ctx context.Context, uid, beginStart, beginEnd
 
 // SubscribeV2 订阅设备数据推送
 func (c *Client) SubscribeV2(ctx context.Context, uid string, list []string, subData []string, notifyURL string) (*QuanyuResponse, error) {
+	logger.LogCallbackDebug("[subscribe] 发起订阅请求",
+		zap.String("sign_uid", uid),
+		zap.Int("list_count", len(list)),
+		zap.Strings("sub_data", subData),
+		zap.String("notifyurl", notifyURL),
+	)
+
 	params := map[string]any{
 		"list":      list,
 		"subData":   subData,
@@ -303,5 +310,13 @@ func (c *Client) SubscribeV2(ctx context.Context, uid string, list []string, sub
 	if err != nil {
 		return nil, err
 	}
+
+	logger.LogCallbackDebug("[subscribe] 订阅响应",
+		zap.String("sign_uid", uid),
+		zap.Int("errno", resp.Errno),
+		zap.String("errmsg", resp.Errmsg),
+		zap.String("notifyurl", notifyURL),
+	)
+
 	return resp, nil
 }
