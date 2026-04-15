@@ -20,8 +20,8 @@ mongodb:
 
 # 回调服务配置
 callback:
-  listen_addr: ":8888"
-  notifyurl_base: "http://YOUR_PUBLIC_URL"
+  listen_addr: ":8888"                                       # 本地监听地址
+  notify_url: "http://YOUR_PUBLIC_IP:8888/callback/push"     # 完整回调地址，可改为域名: "https://battery.example.com/callback/push"
 
 # 订阅配置
 subscribe:

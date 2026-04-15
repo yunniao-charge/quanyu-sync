@@ -38,8 +38,8 @@ type MongoDBConfig struct {
 }
 
 type CallbackConfig struct {
-	ListenAddr    string `yaml:"listen_addr"`
-	NotifyURLBase string `yaml:"notifyurl_base"`
+	ListenAddr string `yaml:"listen_addr"` // 本地监听地址，如 ":8888"
+	NotifyURL  string `yaml:"notify_url"`  // 完整回调地址，如 "https://battery.example.com/callback/push"
 }
 
 type SubscribeConfig struct {

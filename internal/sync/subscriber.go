@@ -76,7 +76,7 @@ func (sub *Subscriber) subscribeAll(ctx context.Context) error {
 		return nil
 	}
 
-	notifyURL := sub.callback.NotifyURLBase + "/callback/push"
+	notifyURL := sub.callback.NotifyURL
 	batchSize := sub.config.BatchSize
 
 	successCount := 0

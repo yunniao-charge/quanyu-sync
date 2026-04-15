@@ -34,7 +34,7 @@ mongodb:
 
 callback:
   listen_addr: ":8888"
-  notifyurl_base: "http://example.com"
+  notify_url: "http://example.com:8888/callback/push"
 
 subscribe:
   batch_size: 20
@@ -80,7 +80,7 @@ sync:
 	assert.Equal(t, "root123", cfg.MongoDB.Password)
 
 	assert.Equal(t, ":8888", cfg.Callback.ListenAddr)
-	assert.Equal(t, "http://example.com", cfg.Callback.NotifyURLBase)
+	assert.Equal(t, "http://example.com:8888/callback/push", cfg.Callback.NotifyURL)
 
 	assert.Equal(t, 20, cfg.Subscribe.BatchSize)
 	assert.Equal(t, 25*time.Minute, cfg.Subscribe.RenewInterval)
